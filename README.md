@@ -1,69 +1,123 @@
-# 🌱 GreenLife: Web Monitoramento de Umidade e Temperatura para Plantas
+# 🌱 Projeto GreenLife Integrado - IoT para Monitoramento de Plantas
 
-## 🎯 Objetivo Geral  
-Criar um sistema embarcado que simula o monitoramento ambiental de uma planta, exibindo **temperatura** e **umidade** em tempo real via uma **interface web** acessível por Wi-Fi.  
-O objetivo é proporcionar um **protótipo funcional e interativo**, utilizando a **Raspberry Pi Pico W** com o kit **BitDogLab**, aplicando conceitos práticos de **IoT, sensoriamento e conectividade embarcada**.
+## ✅ Objetivo Geral
+
+O objetivo do projeto **GreenLife** é desenvolver uma aplicação embarcada capaz de monitorar em tempo real os níveis de umidade e temperatura simulados para uma planta, utilizando uma interface web acessível via Wi-Fi, além de fornecer feedback físico direto através de **LEDs**, **display OLED**, **buzzer** e **matriz de LEDs RGB**.
+
+O sistema busca unir **monitoramento remoto e local**, oferecendo uma experiência completa de interação com o ambiente simulado da planta. Além disso, permite a **alternância entre modos de leitura automática (sensor interno)** e **manual (joystick analógico)**, aplicando conceitos de **Internet das Coisas (IoT)**, sensoriamento, interfaces embarcadas e conectividade sem fio.
 
 ---
 
 ## ⚙️ Descrição Funcional
 
-A aplicação é um **servidor HTTP embarcado**, escrito em C, que roda diretamente na Raspberry Pi Pico W. Seu fluxo funciona da seguinte forma:
+O sistema opera como um **servidor HTTP embarcado**, construído em C com o SDK oficial da Raspberry Pi Pico W e a pilha de rede **lwIP**.
 
-1. **Inicialização dos Periféricos**
-   - ADCs ativados para leitura de joystick.
-   - Botão físico configurado com **interrupção**.
-   - Conexão à rede Wi-Fi com **módulo CYW43**.
+### Fluxo Geral:
 
-2. **Servidor TCP na porta 80**
-   - Usa a **pilha lwIP** para lidar com conexões e responder a requisições HTTP.
-   - A cada requisição, a função `receber_dados_tcp()` gera uma **resposta HTML dinâmica**.
+1. **Inicialização de periféricos**: ADC, PWM, I²C, botões, PIO, Wi-Fi.
+2. **Conexão Wi-Fi**: usando o módulo CYW43 em modo STA.
+3. **Servidor TCP**: escuta a porta 80 e responde requisições HTTP com os dados da planta em tempo real.
+4. **Leitura dos sensores**:
+   - Umidade: sempre via joystick (ADC0).
+   - Temperatura:
+     - **Modo automático**: sensor interno da Pico (ADC4).
+     - **Modo manual**: joystick (ADC1).
+5. **Alternância de modo**: feita por botão físico (GPIO5) ou botão na interface web (`/toggle_modo`).
+6. **Feedback ao usuário**:
+   - Interface web com atualização automática.
+   - Display OLED com status e dados.
+   - LEDs RGB indicando o estado.
+   - Matriz de LEDs com animação da planta.
+   - Alarme sonoro em caso crítico.
 
-3. **Leitura dos Sensores**
-   - **Umidade**: sempre lida do eixo Y do joystick (ADC0).
-   - **Temperatura**: 
-     - Modo **automático**: sensor interno da Pico (ADC4).
-     - Modo **manual**: eixo X do joystick (ADC1).
-   - A troca de modo é feita por **botão físico** com `botao_modo_callback()`.
+### Interface Web:
 
-4. **Análise das Condições**
-   - A função `interpretar_estado_planta()` analisa os dados.
-   - Gera mensagens como:
-     - `"Sua planta está feliz!"`
-     - `"Sua planta está com sede!"`, etc.
+- Desenvolvida em HTML dinâmico com autoatualização (`<meta refresh>`).
+- Mostra temperatura, umidade, estado da planta e modo ativo.
+- Permite alternar modo entre Manual e Automático via botão.
 
-5. **Interface Web**
-   - Exibe:
-     - 📡 Modo atual (Automático ou Manual)
-     - 🌡️ Temperatura atual
-     - 💧 Umidade atual
-     - ✅ Status da planta
-   - A página se **atualiza a cada segundo automaticamente** com `<meta refresh>`.
+### Lógica de Estado da Planta:
+
+A função `interpretar_estado_planta()` avalia os dados e define mensagens como:
+
+- "Sua planta está feliz!"
+- "Sua planta está em perigo!"
+- "Com calor", "Com frio", "Com sede", "Excesso de água"
+
+Essas mensagens são exibidas no navegador e no terminal serial.
 
 ---
 
-## 🧩 Uso dos Periféricos da BitDogLab
+## 🔌 Uso dos Periféricos da BitDogLab
 
-### 🎮 Joystick
-- **Eixos Analógicos**:
-  - **X (GPIO27)** → simula temperatura (modo manual).
-  - **Y (GPIO26)** → simula umidade (modo fixo).
-- Leitura feita via **ADC da Pico**, convertida para °C e %.
-- Permite **simular diferentes condições ambientais** manualmente, de forma prática e precisa.
+### 🎮 Joystick Analógico
+
+- **Eixo X (ADC1 / GPIO27)** → Simula **temperatura** (0–60 °C)
+- **Eixo Y (ADC0 / GPIO26)** → Simula **umidade** (0–100%)
+- Usado no modo **manual** para simular condições ambientais.
 
 ### 🔘 Botão Físico (GPIO5)
-- Configurado com **pull-up e interrupção**.
-- Alterna entre:
-  - **Modo Automático** (sensor interno da Pico).
-  - **Modo Manual** (joystick).
-- A interação reflete **imediatamente na interface web**, permitindo testes ao vivo.
 
-### 📶 Módulo Wi-Fi CYW43 (embutido na Pico W)
-- Ativado com `cyw43_arch_enable_sta_mode()`.
-- Conecta à rede e mantém comunicação com o navegador via **protocolo HTTP**.
-- Responsável por:
-  - Criar o **servidor TCP**.
-  - Enviar a **interface HTML dinâmica** com os dados do sistema.
-- Tornou possível o monitoramento **sem uso de displays físicos**, direto pelo navegador.
+- Permite alternar entre **modo automático e manual**.
+- Configurado com interrupção e debounce via timestamp.
+- Reflete mudanças tanto no sistema local quanto na interface web.
+
+### 📶 Wi-Fi CYW43
+
+- Conecta à rede Wi-Fi como estação (STA).
+- Permite que navegadores acessem o sistema via IP local.
+- Exibe informações atualizadas em tempo real e aceita comandos GET.
+
+### 💡 LEDs RGB
+
+- **Verde**: Planta em condição ideal.
+- **Laranja**: Temperatura ou umidade fora do ideal.
+- **Vermelho**: Estado crítico, dispara alarme.
+
+### 🔊 Buzzer (GPIO21)
+
+- Ativado em estado crítico após 5s.
+- Emite som alternando entre duas frequências (PWM).
+- Desativado ao pressionar o botão físico.
+
+### 🟩 Matriz de LEDs via PIO (GPIO7)
+
+- Mostra a **planta estilizada** com cores variáveis:
+  - **Verde**: saudável
+  - **Vermelho**: quente
+  - **Azul**: frio
+- Controlada com código customizado `.pio`.
+
+### 📺 Display OLED (I²C)
+
+- Mostra dados numéricos da temperatura e umidade.
+- Exibe o modo atual (Manual ou Auto).
+- Alerta visual quando o alarme está ativado.
 
 ---
+
+## 🧠 Funcionalidades Inteligentes
+
+- Alarme automático com temporização crítica.
+- Alternância de modos remota e física.
+- Lógica de avaliação contextual (temp/umidade).
+- Terminal serial com relatórios periódicos.
+- Página web atualizada automaticamente.
+
+---
+
+### 📡 Tecnologias Aplicadas
+
+- C SDK (Pico)
+- lwIP (TCP/IP Stack)
+- PWM, ADC, I²C, PIO
+- Wi-Fi integrado CYW43
+- HTML embarcado (servidor web nativo)
+
+---
+
+## 👨‍💻 Autor
+
+Desenvolvido por Levi Silva Freitas  
+CEPEDI - Embarcatech TIC37  
+
